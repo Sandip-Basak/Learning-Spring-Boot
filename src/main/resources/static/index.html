@@ -3,21 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Management Dashboard</title>
+    <title>Enterprise Inventory Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
 
-<div class="container mt-5">
-    <div class="row">
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="#">QubitOne Inventory System</a>
+        <div id="authNavControls" class="d-flex align-items-center text-white">
+            </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div id="authWrapperRow" class="row justify-content-center d-none my-4">
         <div class="col-md-5">
-            
+            <div class="card p-4 shadow-sm">
+                <h4 id="authFormTitle" class="mb-3">Sign In</h4>
+                <form id="authForm">
+                    <div class="mb-3 d-none" id="nameFieldGroup">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="authName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email ID</label>
+                        <input type="email" class="form-control" id="authEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" id="authPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100" id="authSubmitBtn">Login</button>
+                    <p class="text-center mt-3 small"><a href="#" id="toggleAuthModeLink">Create an account instead</a></p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-5 d-none" id="managementColumn">
             <div class="card p-4 shadow-sm mb-4">
                 <h4 class="mb-3">Create Category</h4>
                 <form id="categoryForm">
                     <div class="mb-3">
                         <label class="form-label">Category Name</label>
-                        <input type="text" class="form-control" id="catName" placeholder="e.g., Electronics" required>
+                        <input type="text" class="form-control" id="catName" required>
                     </div>
                     <button type="submit" class="btn btn-secondary w-100">Add Category</button>
                 </form>
@@ -31,17 +62,15 @@
                         <input type="text" class="form-control" id="title" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Price</label>
+                        <label class="form-label">Price ($)</label>
                         <input type="number" class="form-control" id="price" step="0.01" required>
                     </div>
-                    
                     <div class="mb-3">
                         <label class="form-label">Category</label>
                         <select class="form-select" id="productCategory" required>
                             <option value="">-- Select a Category --</option>
                         </select>
                     </div>
-                    
                     <div class="mb-3">
                         <label class="form-label">Product Image</label>
                         <input type="file" class="form-control" id="image" accept="image/*">
@@ -51,36 +80,119 @@
             </div>
         </div>
 
-        <div class="col-md-7">
-            <h2 class="mb-4">Inventory List</h2>
+        <div class="col-md-12" id="catalogColumn">
+            <h2 class="mb-4">Inventory Records</h2>
             <table class="table table-striped table-hover shadow-sm bg-white rounded">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Image</th>
-                        <th>Title</th>
-                        <th>Category</th> <th>Price</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="productTableBody">
-                    </tbody>
+                <table class="table align-middle bg-white shadow-sm rounded">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Image</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            <th class="action-header d-none">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTableBody"></tbody>
+                </table>
             </table>
         </div>
     </div>
 </div>
 
 <script>
-    // UPDATED: Initialize dashboard data streams on load
+    let isLoginMode = true;
+
     document.addEventListener("DOMContentLoaded", () => {
+        checkAuthStatus();
         loadCategories();
         loadProducts();
     });
 
-    // 1. ADDED: Fetch and Populate Categories in the Dropdown Selector
+    function checkAuthStatus() {
+        fetch('/api/auth/status')
+            .then(res => res.json())
+            .then(data => {
+                const nav = document.getElementById('authNavControls');
+                const mgmtCol = document.getElementById('managementColumn');
+                const catalogCol = document.getElementById('catalogColumn');
+                const authRow = document.getElementById('authWrapperRow');
+                const actionHeaders = document.querySelectorAll('.action-header');
+
+                if (data.authenticated) {
+                    // Update layout for authenticated user
+                    nav.innerHTML = `<span class="me-3">Welcome, <strong>${data.email}</strong></span>
+                                     <button class="btn btn-sm btn-outline-light" onclick="handleLogout()">Logout</button>`;
+                    mgmtCol.classList.remove('d-none');
+                    catalogCol.className = "col-md-7"; // Shrink catalog grid display pane
+                    authRow.classList.add('d-none');
+                    actionHeaders.forEach(el => el.classList.remove('d-none'));
+                } else {
+                    // Update layout for anonymous guest
+                    nav.innerHTML = `<button class="btn btn-sm btn-light" onclick="showAuthForm()">Sign In / Register</button>`;
+                    mgmtCol.classList.add('d-none');
+                    catalogCol.className = "col-md-12"; // Maximize catalog grid view representation
+                    actionHeaders.forEach(el => el.classList.add('d-none'));
+                }
+                loadProducts(); // Rerender to dynamically include or hide individual rows delete actions
+            });
+    }
+
+    function showAuthForm() {
+        document.getElementById('authWrapperRow').classList.remove('d-none');
+    }
+
+    // Toggle between login and signup input options
+    document.getElementById('toggleAuthModeLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        isLoginMode = !isLoginMode;
+        document.getElementById('authFormTitle').innerText = isLoginMode ? "Sign In" : "Create Account";
+        document.getElementById('authSubmitBtn').innerText = isLoginMode ? "Login" : "Register";
+        document.getElementById('nameFieldGroup').classList.toggle('d-none', isLoginMode);
+        document.getElementById('toggleAuthModeLink').innerText = isLoginMode ? "Create an account instead" : "Already have an account? Login";
+    });
+
+    // Handle Authentication Submission Forms
+    document.getElementById('authForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const email = document.getElementById('authEmail').value;
+        const password = document.getElementById('authPassword').value;
+        const name = document.getElementById('authName').value;
+
+        const url = isLoginMode ? '/api/auth/login' : '/api/auth/signup';
+        const payload = isLoginMode ? { email, password } : { name, email, password };
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => {
+            if(!res.ok) throw new Error("Authentication request failed");
+            return res.json();
+        })
+        .then(() => {
+            document.getElementById('authForm').reset();
+            if(!isLoginMode) {
+                isLoginMode = true;
+                alert("Account created successfully! Please sign in.");
+                location.reload();
+            } else {
+                checkAuthStatus();
+            }
+        })
+        .catch(err => alert("Error: Invalid credentials or transaction malfunction."));
+    });
+
+    function handleLogout() {
+        fetch('/api/auth/logout', { method: 'POST' })
+            .then(() => location.reload());
+    }
+
     function loadCategories() {
         fetch('/api/categories')
-            .then(response => response.json())
+            .then(res => res.json())
             .then(categories => {
                 const select = document.getElementById('productCategory');
                 select.innerHTML = '<option value="">-- Select a Category --</option>';
@@ -90,84 +202,59 @@
             });
     }
 
-    // 2. UPDATED: Fetch and Display Data (Includes Category Column)
     function loadProducts() {
         fetch('/api/products')
-            .then(response => response.json())
-            .then(data => {
-                const tbody = document.getElementById('productTableBody');
-                tbody.innerHTML = '';
-                data.forEach(product => {
-                    tbody.innerHTML += `
-                        <tr class="align-middle">
-                            <td>${product.id}</td>
-                            <td>
-                                ${product.imageUrl ? `<img src="${product.imageUrl}" width="50" class="rounded img-thumbnail">` : '<span class="text-muted">No Image</span>'}
-                            </td>
-                            <td>${product.title}</td>
-                            <td><span class="badge bg-info text-dark">${product.category ? product.category.name : 'Unassigned'}</span></td>
-                            <td>$${product.price.toFixed(2)}</td>
-                            <td>
-                                <button class="btn btn-sm btn-danger" onclick="deleteProduct(${product.id})">Delete</button>
-                            </td>
-                        </tr>
-                    `;
+            .then(res => res.json())
+            .then(products => {
+                // Check view status dynamically
+                fetch('/api/auth/status').then(r => r.json()).then(status => {
+                    const tbody = document.getElementById('productTableBody');
+                    tbody.innerHTML = '';
+                    products.forEach(p => {
+                        tbody.innerHTML += `
+                            <tr class="align-middle">
+                                <td>${p.id}</td>
+                                <td>
+                                    ${p.imageUrl ? `<img src="${p.imageUrl}" width="50" class="rounded img-thumbnail">` : '<span class="text-muted">None</span>'}
+                                </td>
+                                <td><strong>${p.title}</strong></td>
+                                <td><span class="badge bg-info text-dark">${p.category ? p.category.name : 'N/A'}</span></td>
+                                <td>$${p.price.toFixed(2)}</td>
+                                ${status.authenticated ? `<td><button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(${p.id})">Delete</button></td>` : ''}
+                            </tr>
+                        `;
+                    });
                 });
             });
     }
 
-    // 3. ADDED: Handle Category Form Submission (JSON Payload)
     document.getElementById('categoryForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const categoryName = document.getElementById('catName').value;
-
         fetch('/api/categories', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: categoryName })
-        })
-        .then(response => response.json())
-        .then(() => {
-            document.getElementById('categoryForm').reset();
-            loadCategories(); // Refresh relational dropdown element list options
-        })
-        .catch(error => console.error('Error saving category:', error));
+            body: JSON.stringify({ name: document.getElementById('catName').value })
+        }).then(() => { document.getElementById('categoryForm').reset(); loadCategories(); });
     });
 
-    // 4. UPDATED: Handle Product Form Submission (Appends relationship context)
     document.getElementById('productForm').addEventListener('submit', function(e) {
         e.preventDefault();
-
         const formData = new FormData();
         formData.append('title', document.getElementById('title').value);
         formData.append('price', document.getElementById('price').value);
-        formData.append('categoryId', document.getElementById('productCategory').value); // UPDATED: Link foreign key
-        
-        const imageFile = document.getElementById('image').files[0];
-        if (imageFile) {
-            formData.append('image', imageFile);
-        }
+        formData.append('categoryId', document.getElementById('productCategory').value);
+        const img = document.getElementById('image').files[0];
+        if (img) formData.append('image', img);
 
-        fetch('/api/products', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(() => {
-            document.getElementById('productForm').reset();
-            loadProducts(); // Refresh table visual data rows
-        })
-        .catch(error => console.error('Error saving product:', error));
+        fetch('/api/products', { method: 'POST', body: formData })
+            .then(() => { document.getElementById('productForm').reset(); loadProducts(); });
     });
 
-    // 5. Delete Product Record
     function deleteProduct(id) {
-        if(confirm("Are you sure?")) {
-            fetch(`/api/products/${id}`, { method: 'DELETE' })
-                .then(() => loadProducts());
+        if(confirm("Delete record?")) {
+            fetch(`/api/products/${id}`, { method: 'DELETE' }).then(() => loadProducts());
         }
     }
 </script>
-
 </body>
 </html>
