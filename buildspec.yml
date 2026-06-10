@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto17
+  pre_build:
+    commands:
+      - echo "Checking build environment..."
+  build:
+    commands:
+      - echo "Compiling Spring Boot application JAR file..."
+      - mvn clean package -DskipTests
+  post_build:
+    commands:
+      - echo "Build phase complete. Shipping files to pipeline deployment folder."
+
+artifacts:
+  files:
+    - 'target/*.jar'
+    - 'Dockerfile'
+    - 'docker-compose.yml'
+    - 'appspec.yml'
+    - 'scripts/**/*'

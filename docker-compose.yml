@@ -19,7 +19,7 @@ services:
     depends_on:
       - mysqldb
     environment:
-      # Override the properties file to point to the docker container named 'mysqldb' instead of localhost
+      # Direct connection context to the containerized database engine instance
       SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/inventory_db?allowPublicKeyRetrieval=true&useSSL=false
 
 volumes:
